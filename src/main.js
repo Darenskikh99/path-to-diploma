@@ -20,7 +20,6 @@ const GameProgress = {
     }
 };
 
-
 // ============================================
 //                 BOOT SCENE
 // ============================================
@@ -69,25 +68,25 @@ class HubScene extends Phaser.Scene {
             { n: 4, c: 0xaa4444, x: 540 }
         ];
         
-        courses.forEach(c => {
-            const completed = GameProgress.courses[c.n];
-            const color = completed ? 0x555555 : c.c;
-            const btn = this.add.rectangle(c.x, 280, 100, 80, color, 0.8);
-            
-            if (!completed) {
-                btn.setInteractive();
-                btn.on('pointerdown', () => this.scene.start('DungeonScene', { course: c.n, room: 1 }));
-                btn.on('pointerover', () => btn.setFillStyle(c.c, 1));
-                btn.on('pointerout', () => btn.setFillStyle(c.c, 0.8));
-            }
-            
-            this.add.text(c.x, 265, c.n.toString(), { fontSize: '28px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
-            this.add.text(c.x, 290, 'Course', { fontSize: '16px', color: '#fff' }).setOrigin(0.5);
-            
-            if (completed) {
-                this.add.text(c.x, 315, '✓ DONE', { fontSize: '12px', color: '#0f0' }).setOrigin(0.5);
-            }
-        });
+    courses.forEach(c => {
+        const completed = GameProgress.courses[c.n];
+        const color = completed ? 0x555555 : c.c;
+        const btn = this.add.rectangle(c.x, 280, 100, 80, color, 0.8);
+        
+        if (!completed) {
+            btn.setInteractive();
+            btn.on('pointerdown', () => this.scene.start('DungeonScene', { course: c.n, room: 1 }));
+            btn.on('pointerover', () => btn.setFillStyle(c.c, 1));
+            btn.on('pointerout', () => btn.setFillStyle(c.c, 0.8));
+        }
+        
+        this.add.text(c.x, 265, c.n.toString(), { fontSize: '28px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+        this.add.text(c.x, 290, 'Course', { fontSize: '16px', color: '#fff' }).setOrigin(0.5);
+        
+        if (completed) {
+            this.add.text(c.x, 315, '✓ DONE', { fontSize: '12px', color: '#0f0' }).setOrigin(0.5);
+        }
+    });
         
         const diplomaUnlocked = GameProgress.allCompleted();
         const diplomaColor = diplomaUnlocked ? 0xffaa00 : 0x555555;
@@ -116,7 +115,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         this.speed = 160;
         this.hp = 100;
         this.maxHp = 100;
-        this.attackDamage = 50;
+        this.attackDamage = 300;
         this.attackCooldown = 350;
         this.lastAttack = 0;
         
@@ -192,7 +191,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
                         bullet.destroy();
                         return;
                     }
-                }
+                }               
             },
             onComplete: () => { if (bullet && bullet.active) bullet.destroy(); }
         });
@@ -292,7 +291,7 @@ class DungeonScene extends Phaser.Scene {
             GameProgress.complete(this.course);
             this.scene.start('HubScene');
         }
-}
+    }
 }
 
 // ============================================
@@ -387,30 +386,28 @@ class BossScene extends Phaser.Scene {
         if (!this.boss || this.boss.hp <= 0) return;
         
         if (this.boss.phase === 1) {
-            for (let i = 0; i < 3; i++) {
-                this.shootProjectile(0, 200, 0xff00ff, true);
+            for (let i = 0; i < 4; i++) {
+                this.shootProjectile(0, 200, 0xff00ff, true); // true = в игрока
             }
         }
         else if (this.boss.phase === 2) {
             const baseAngle = Phaser.Math.Angle.Between(this.boss.x, this.boss.y, this.player.x, this.player.y);
             const baseDeg = Phaser.Math.RadToDeg(baseAngle);
             for (let i = -2; i <= 2; i++) {
-                this.shootProjectile(baseDeg + i * 25, 250, 0xff6600);
+                this.shootProjectile(baseDeg + i * 20, 250, 0xff6600);
             }
-        } else {
+        }
+        else {
             // Круговой залп
             for (let i = 0; i < 8; i++) {
                 this.shootProjectile(i * 45, 280, 0xff0000);
             }
-            // Дополнительные в игрока
-            this.time.delayedCall(500, () => {
-                if (this.boss && this.boss.active) {
-                    this.shootProjectile(0, 220, 0xff4444, true);
-                    this.shootProjectile(0, 220, 0xff4444, true);
-                }
-            });
+            // Два снаряда в игрока
+            this.shootProjectile(0, 250, 0xff0000, true);
+            this.shootProjectile(0, 250, 0xff0000, true);
         }
     }
+    
     shootProjectile(angleDeg, speed, color, targetPlayer = false) {
         let angle;
         
