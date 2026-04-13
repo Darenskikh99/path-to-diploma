@@ -578,7 +578,7 @@ class DungeonScene extends Phaser.Scene {
         this.physics.add.collider(this.player, this.walls);
         
         this.enemies = this.physics.add.group();
-
+        this.createRoomLayout();
 
 
     this.enemies = this.physics.add.group();
@@ -640,6 +640,137 @@ class DungeonScene extends Phaser.Scene {
         this.add.text(400, 550, 'WASD/Arrows | Mouse shoot | SPACE dash | ESC back', { fontSize: '14px', color: '#888' }).setOrigin(0.5);
         
         this.input.keyboard.on('keydown-ESC', () => this.scene.start('HubScene'));
+    }
+
+    createRoomLayout() {
+    // Удаляем старые препятствия, если они есть
+    if (this.obstacles) {
+        this.obstacles.destroy();
+    }
+    // Создаём новую группу
+    this.obstacles = this.physics.add.staticGroup();
+        
+        // Цвет фона в зависимости от комнаты
+        const colors = {
+            1: '#2a3a4a', // Кабинет - синеватый
+            2: '#3a3a2a', // Кабинет - зеленоватый
+            3: '#4a2a2a', // Лекционный зал - красноватый
+            4: '#2a4a3a', // Кабинет - бирюзовый
+            5: '#1a3a3a', // Лаборатория - холодный сине-зелёный
+            6: '#3a2a4a', // Кабинет - фиолетовый
+            7: '#4a1a1a'  // Экзамен - тёмно-красный
+        };
+        this.cameras.main.setBackgroundColor(colors[this.room] || '#2a2a3a');
+        
+        // Добавляем препятствия
+        if (this.room === 1) {
+            // Кабинет: парты рядами
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 3; col++) {
+                    const x = 200 + col * 150;
+                    const y = 200 + row * 120;
+                    const desk = this.obstacles.create(x, y, 'wall');
+                    desk.setScale(1.2, 0.8);
+                    desk.refreshBody();
+                    desk.setTint(0x8B6B4D);
+                }
+            }
+            // Доска
+            this.add.rectangle(400, 70, 120, 30, 0x2d5a27);
+            this.add.rectangle(400, 70, 110, 22, 0x1a3a17);
+        }
+        
+        else if (this.room === 2) {
+            // Кабинет: парты в шахматном порядке
+            for (let i = 0; i < 6; i++) {
+                const x = 200 + (i % 3) * 150;
+                const y = 180 + Math.floor(i / 3) * 130 + (i % 2) * 40;
+                const desk = this.obstacles.create(x, y, 'wall');
+                desk.setScale(1.2, 0.8);
+                desk.refreshBody();
+                desk.setTint(0x8B6B4D);
+            }
+        }
+        
+        else if (this.room === 3) {
+            // Лекционный зал: кафедра и парты полукругом
+            // Кафедра
+            const podium = this.obstacles.create(400, 120, 'wall');
+            podium.setScale(2, 1.2);
+            podium.refreshBody();
+            podium.setTint(0x8B4513);
+            
+            // Доска
+            this.add.rectangle(400, 70, 140, 35, 0x2d5a27);
+            
+            // Парты полукругом
+            for (let i = 0; i < 5; i++) {
+                const angle = -50 + i * 25;
+                const rad = angle * Math.PI / 180;
+                const x = 400 + Math.sin(rad) * 180;
+                const y = 250 + Math.cos(rad) * 120;
+                const desk = this.obstacles.create(x, y, 'wall');
+                desk.setScale(1.3, 0.8);
+                desk.refreshBody();
+                desk.setTint(0xA0522D);
+            }
+        }
+        
+        else if (this.room === 4) {
+            // Кабинет: парты вдоль стен
+            this.obstacles.create(150, 200, 'wall').setScale(1.5, 0.8).refreshBody();
+            this.obstacles.create(150, 350, 'wall').setScale(1.5, 0.8).refreshBody();
+            this.obstacles.create(650, 200, 'wall').setScale(1.5, 0.8).refreshBody();
+            this.obstacles.create(650, 350, 'wall').setScale(1.5, 0.8).refreshBody();
+            this.obstacles.create(400, 450, 'wall').setScale(1.5, 0.8).refreshBody();
+        }
+        
+        else if (this.room === 5) {
+            // Лаборатория: длинные столы
+            this.obstacles.create(250, 200, 'wall').setScale(3, 0.7).refreshBody().setTint(0x668888);
+            this.obstacles.create(550, 200, 'wall').setScale(3, 0.7).refreshBody().setTint(0x668888);
+            this.obstacles.create(250, 400, 'wall').setScale(3, 0.7).refreshBody().setTint(0x668888);
+            this.obstacles.create(550, 400, 'wall').setScale(3, 0.7).refreshBody().setTint(0x668888);
+            
+            // Колбы на столах (декорация)
+            this.add.circle(220, 190, 6, 0x44aaff, 0.6);
+            this.add.circle(280, 210, 6, 0xff4444, 0.6);
+            this.add.circle(520, 190, 6, 0x44ff44, 0.6);
+            this.add.circle(580, 210, 6, 0xffaa00, 0.6);
+        }
+        
+        else if (this.room === 6) {
+            // Кабинет: круговая расстановка
+            for (let i = 0; i < 6; i++) {
+                const angle = i * 60 * Math.PI / 180;
+                const x = 400 + Math.cos(angle) * 150;
+                const y = 300 + Math.sin(angle) * 120;
+                const desk = this.obstacles.create(x, y, 'wall');
+                desk.setScale(1.2, 0.8);
+                desk.refreshBody();
+            }
+        }
+        
+        else if (this.room === 7) {
+            // Экзамен: большая парта-щит
+            const teacherDesk = this.obstacles.create(400, 150, 'wall');
+            teacherDesk.setScale(3, 1);
+            teacherDesk.refreshBody();
+            teacherDesk.setTint(0x8B4513);
+            
+            // Парты для студентов
+            this.obstacles.create(200, 350, 'wall').setScale(1.5, 0.8).refreshBody();
+            this.obstacles.create(600, 350, 'wall').setScale(1.5, 0.8).refreshBody();
+            this.obstacles.create(400, 450, 'wall').setScale(1.5, 0.8).refreshBody();
+            
+            // Доска
+            this.add.rectangle(400, 80, 160, 35, 0x2d5a27);
+            this.add.text(400, 80, 'EXAM', { fontSize: '20px', color: '#fff' }).setOrigin(0.5);
+        }
+        
+        // Добавляем коллизию игрока и врагов с препятствиями
+        this.physics.add.collider(this.player, this.obstacles);
+        this.physics.add.collider(this.enemies, this.obstacles);
     }
 
     update(time) {
