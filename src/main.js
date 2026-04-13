@@ -312,6 +312,102 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
         }
     }
 
+    // ============================================
+    //              TELEPORTIST
+    // ============================================
+    class Teleportist extends Enemy {
+        constructor(scene, x, y) {
+            super(scene, x, y);
+            this.hp = 80;
+            this.speed = 100;
+            this.damage = 15;
+            this.lastAttack = 0;
+            this.lastTeleport = 0;
+            this.setTint(0x33cccc);
+            this.setScale(1.2);
+        }
+
+        update(time) {
+            if (!this.target) return;
+            
+            const dist = Phaser.Math.Distance.Between(this.x, this.y, this.target.x, this.target.y);
+            
+            // Движение к игроку
+            if (dist > 150) {
+                this.scene.physics.moveToObject(this, this.target, this.speed);
+            } else {
+                this.setVelocity(0, 0);
+            }
+            
+            // Телепортация каждые 3 секунды
+            if (time > this.lastTeleport) {
+                console.log('TELEPORTIST TELEPORTING!');
+                
+                // Эффект исчезновения
+                this.scene.add.circle(this.x, this.y, 25, 0x33cccc, 0.5);
+                
+                // Телепортация в случайное место рядом с игроком
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 150;
+                let newX = this.target.x + Math.cos(angle) * distance;
+                let newY = this.target.y + Math.sin(angle) * distance;
+                
+                // Не выходим за границы
+                newX = Math.max(50, Math.min(750, newX));
+                newY = Math.max(50, Math.min(550, newY));
+                
+                this.x = newX;
+                this.y = newY;
+                
+                // Эффект появления
+                this.scene.add.circle(newX, newY, 25, 0x33cccc, 0.5);
+                
+                this.lastTeleport = time + 3000;
+            }
+            
+            // Стрельба каждые 1.5 секунды
+            if (time > this.lastAttack) {
+                console.log('TELEPORTIST SHOOTING!');
+                
+                const bullet = this.scene.add.sprite(this.x, this.y, 'player');
+                bullet.setTint(0x33cccc);
+                bullet.setScale(0.5);
+                bullet.damage = this.damage;
+                
+                const angle = Phaser.Math.Angle.Between(this.x, this.y, this.target.x, this.target.y);
+                const speed = 250;
+                
+                const interval = setInterval(() => {
+                    if (!bullet || !bullet.active || !this.target) {
+                        clearInterval(interval);
+                        return;
+                    }
+                    
+                    bullet.x += Math.cos(angle) * speed * 0.016;
+                    bullet.y += Math.sin(angle) * speed * 0.016;
+                    
+                    if (Phaser.Math.Distance.Between(bullet.x, bullet.y, this.target.x, this.target.y) < 30) {
+                        this.target.takeDamage(bullet.damage);
+                        bullet.destroy();
+                        clearInterval(interval);
+                    }
+                    
+                    if (bullet.x < 0 || bullet.x > 800 || bullet.y < 0 || bullet.y > 600) {
+                        bullet.destroy();
+                        clearInterval(interval);
+                    }
+                }, 16);
+                
+                this.scene.time.delayedCall(3000, () => {
+                    clearInterval(interval);
+                    if (bullet && bullet.active) bullet.destroy();
+                });
+                
+                this.lastAttack = time + 1500;
+            }
+        }
+    }
+
 // ============================================
 //               DUNGEON SCENE
 // ============================================
@@ -334,23 +430,38 @@ class DungeonScene extends Phaser.Scene {
         
         this.enemies = this.physics.add.group();
 
-        // В 3-й комнате спавним Лектора
-        if (this.room === 3) {
-            const lector = new Lector(this, 400, 200);
-            lector.setTarget(this.player);
-            this.enemies.add(lector);
-            for (let i = 0; i < 2; i++) {
-                const e = new Enemy(this, 200 + i * 200, 350);
-                e.setTarget(this.player);
-                this.enemies.add(e);
-            }
-        } else {
-            for (let i = 0; i < 2 + this.course; i++) {
-                const e = new Enemy(this, 200 + i * 100, 200);
-                e.setTarget(this.player);
-                this.enemies.add(e);
-            }
+this.enemies = this.physics.add.group();
+
+    // 3-я комната - Лектор
+    if (this.room === 3) {
+        const lector = new Lector(this, 400, 200);
+        lector.setTarget(this.player);
+        this.enemies.add(lector);
+        for (let i = 0; i < 2; i++) {
+            const e = new Enemy(this, 200 + i * 200, 350);
+            e.setTarget(this.player);
+            this.enemies.add(e);
         }
+    }
+    // 5-я комната - Телепортист
+    else if (this.room === 5) {
+        const teleportist = new Teleportist(this, 400, 300);
+        teleportist.setTarget(this.player);
+        this.enemies.add(teleportist);
+        for (let i = 0; i < 2; i++) {
+            const e = new Enemy(this, 200 + i * 200, 400);
+            e.setTarget(this.player);
+            this.enemies.add(e);
+        }
+    }
+    // Обычные комнаты
+    else {
+        for (let i = 0; i < 2 + this.course; i++) {
+            const e = new Enemy(this, 200 + i * 100, 200);
+            e.setTarget(this.player);
+            this.enemies.add(e);
+        }
+    }
         
         this.physics.add.collider(this.enemies, this.walls);
         this.physics.add.collider(this.player, this.enemies, (p, e) => {
