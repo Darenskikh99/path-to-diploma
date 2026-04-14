@@ -6,17 +6,35 @@ import Phaser from 'phaser';
 const GameProgress = {
     courses: { 1: false, 2: false, 3: false, 4: false },
     
+    load: function() {
+        const saved = localStorage.getItem('diplomaProgress');
+        if (saved) {
+            try {
+                this.courses = JSON.parse(saved);
+            } catch (e) {}
+        }
+    },
+    
+    save: function() {
+        localStorage.setItem('diplomaProgress', JSON.stringify(this.courses));
+    },
+    
     complete: function(course) {
         this.courses[course] = true;
-        console.log(`Course ${course} completed!`);
+        this.save();
     },
     
     allCompleted: function() {
         return this.courses[1] && this.courses[2] && this.courses[3] && this.courses[4];
     },
     
+    getCompletedCount: function() {
+        return Object.values(this.courses).filter(v => v).length;
+    },
+    
     reset: function() {
         this.courses = { 1: false, 2: false, 3: false, 4: false };
+        this.save();
     }
 };
 
@@ -61,6 +79,36 @@ class HubScene extends Phaser.Scene {
         this.add.text(400, 110, 'Room 313', { fontSize: '18px', color: '#aaa' }).setOrigin(0.5);
         this.add.text(400, 170, 'Choose course (1-4):', { fontSize: '20px', color: '#fff' }).setOrigin(0.5);
         
+        // === ВЫБОР ОРУЖИЯ ===
+        this.add.text(400, 440, 'Choose weapon:', { fontSize: '16px', color: '#aaa' }).setOrigin(0.5);
+        
+        let selectedWeapon = 'ranged';
+        
+        const weapons = [
+            { name: 'FAST', color: '#44aaff', x: 200, y: 480, weapon: 'fast_melee' },
+            { name: 'SLOW', color: '#aa6644', x: 400, y: 480, weapon: 'slow_melee' },
+            { name: 'RANGED', color: '#ffdd44', x: 600, y: 480, weapon: 'ranged' }
+        ];
+        
+        weapons.forEach(w => {
+            const btn = this.add.rectangle(w.x, w.y, 80, 35, w.color, 0.8)
+                .setInteractive()
+                .on('pointerdown', () => {
+                    selectedWeapon = w.weapon;
+                    weapons.forEach(ww => {
+                        const b = this.children.getByName(ww.weapon + '_btn');
+                        if (b) b.setStrokeStyle(0);
+                    });
+                    btn.setStrokeStyle(3, 0xffffff);
+                });
+            btn.setName(w.weapon + '_btn');
+            this.add.text(w.x, w.y, w.name, { fontSize: '12px', color: '#fff' }).setOrigin(0.5);
+        });
+        
+        const defaultBtn = this.children.getByName('ranged_btn');
+        if (defaultBtn) defaultBtn.setStrokeStyle(3, 0xffffff);
+        
+        // === КНОПКИ КУРСОВ ===
         const courses = [
             { n: 1, c: 0x44aa44, x: 180 },
             { n: 2, c: 0xaaaa44, x: 300 },
@@ -68,38 +116,42 @@ class HubScene extends Phaser.Scene {
             { n: 4, c: 0xaa4444, x: 540 }
         ];
         
-    courses.forEach(c => {
-        const completed = GameProgress.courses[c.n];
-        const color = completed ? 0x555555 : c.c;
-        const btn = this.add.rectangle(c.x, 280, 100, 80, color, 0.8);
+        courses.forEach(c => {
+            const completed = GameProgress.courses[c.n];
+            const color = completed ? 0x555555 : c.c;
+            const btn = this.add.rectangle(c.x, 280, 100, 80, color, 0.8);
+            
+            if (!completed) {
+                btn.setInteractive();
+                btn.on('pointerdown', () => {
+                    this.scene.start('DungeonScene', { 
+                        course: c.n, 
+                        room: 1,
+                        weapon: selectedWeapon  // ← ВОТ ЗДЕСЬ ПЕРЕДАЁМ
+                    });
+                });
+                btn.on('pointerover', () => btn.setFillStyle(c.c, 1));
+                btn.on('pointerout', () => btn.setFillStyle(c.c, 0.8));
+            }
+            
+            this.add.text(c.x, 265, c.n.toString(), { fontSize: '28px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+            this.add.text(c.x, 290, 'Course', { fontSize: '16px', color: '#fff' }).setOrigin(0.5);
+            
+            if (completed) {
+                this.add.text(c.x, 315, '✓ DONE', { fontSize: '12px', color: '#0f0' }).setOrigin(0.5);
+            }
+        });
         
-        if (!completed) {
-            btn.setInteractive();
-            btn.on('pointerdown', () => this.scene.start('DungeonScene', { course: c.n, room: 1 }));
-            btn.on('pointerover', () => btn.setFillStyle(c.c, 1));
-            btn.on('pointerout', () => btn.setFillStyle(c.c, 0.8));
-        }
-        
-        this.add.text(c.x, 265, c.n.toString(), { fontSize: '28px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
-        this.add.text(c.x, 290, 'Course', { fontSize: '16px', color: '#fff' }).setOrigin(0.5);
-        
-        if (completed) {
-            this.add.text(c.x, 315, '✓ DONE', { fontSize: '12px', color: '#0f0' }).setOrigin(0.5);
-        }
-    });
-        
-        const diplomaUnlocked = GameProgress.allCompleted();
-        const diplomaColor = diplomaUnlocked ? 0xffaa00 : 0x555555;
-        const diplomaText = diplomaUnlocked ? '🎓 DIPLOM' : `🔒 DIPLOM (${Object.values(GameProgress.courses).filter(v => v).length}/4)`;
-
-        const diplomaBtn = this.add.rectangle(400, 420, 200, 60, diplomaColor, 0.8);
-        if (diplomaUnlocked) {
+        // Кнопка диплома
+        const unlocked = GameProgress.allCompleted();
+        const diplomaBtn = this.add.rectangle(400, 370, 200, 50, unlocked ? 0xffaa00 : 0x555555, 0.8);
+        if (unlocked) {
             diplomaBtn.setInteractive();
             diplomaBtn.on('pointerdown', () => this.scene.start('BossScene'));
-            diplomaBtn.on('pointerover', () => diplomaBtn.setFillStyle(0xffcc00, 1));
-            diplomaBtn.on('pointerout', () => diplomaBtn.setFillStyle(0xffaa00, 0.8));
         }
-        this.add.text(400, 420, diplomaText, { fontSize: '24px', color: diplomaUnlocked ? '#fff' : '#999' }).setOrigin(0.5);
+        this.add.text(400, 370, unlocked ? '🎓 DIPLOM' : `🔒 DIPLOM (${GameProgress.getCompletedCount()}/4)`, { fontSize: '20px', color: unlocked ? '#fff' : '#999' }).setOrigin(0.5);
+        
+        this.add.text(400, 560, 'WASD: move | Mouse: shoot | SPACE: dash | ESC: back', { fontSize: '14px', color: '#888' }).setOrigin(0.5);
     }
 }
 
@@ -107,7 +159,7 @@ class HubScene extends Phaser.Scene {
 //                 PLAYER
 // ============================================
 class Player extends Phaser.Physics.Arcade.Sprite {
-    constructor(scene, x, y) {
+    constructor(scene, x, y, weaponType) {
         super(scene, x, y, 'player');
         scene.add.existing(this);
         scene.physics.add.existing(this);
@@ -115,19 +167,74 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         this.speed = 160;
         this.hp = 100;
         this.maxHp = 100;
-        this.attackDamage = 30;
-        this.attackCooldown = 350;
-        this.lastAttack = 0;
+        
+        // Устанавливаем оружие
+        this.setWeapon(weaponType);
         
         this.isDashing = false;
         this.dashCooldown = 1000;
         this.lastDash = 0;
         this.dashSpeed = 400;
+        this.lastAttack = 0;
         
         this.setCollideWorldBounds(true);
         this.setSize(28, 28);
         this.cursors = scene.input.keyboard.createCursorKeys();
-        this.wasd = scene.input.keyboard.addKeys({ up: 'W', down: 'S', left: 'A', right: 'D', dash: 'SPACE' });
+        this.wasd = scene.input.keyboard.addKeys({
+            up: 'W', down: 'S', left: 'A', right: 'D', dash: 'SPACE'
+        });
+        
+        // Показываем выбранное оружие
+        this.showWeaponIndicator();
+    }
+
+    setWeapon(type) {
+        if (type === 'fast_melee') {
+            this.weapon = {
+                name: 'FAST',
+                type: 'melee',
+                damage: 15,
+                cooldown: 250,
+                range: 50,
+                color: 0x44aaff
+            };
+        } else if (type === 'slow_melee') {
+            this.weapon = {
+                name: 'SLOW',
+                type: 'melee',
+                damage: 40,
+                cooldown: 600,
+                range: 70,
+                color: 0xaa6644
+            };
+        } else {
+            this.weapon = {
+                name: 'RANGED',
+                type: 'ranged',
+                damage: 30,
+                cooldown: 350,
+                range: 500,
+                color: 0xffdd44,
+                projectileSpeed: 500
+            };
+        }
+    }
+
+    showWeaponIndicator() {
+        const old = document.querySelector('.weapon-indicator');
+        if (old) old.remove();
+        
+        const indicator = document.createElement('div');
+        indicator.className = 'weapon-indicator';
+        indicator.style.cssText = `
+            position: absolute; bottom: 60px; right: 20px;
+            padding: 8px 16px; background: rgba(0,0,0,0.7);
+            color: #fff; border-radius: 8px; font-size: 16px;
+            font-weight: bold; border: 2px solid ${this.weapon.color};
+            z-index: 100;
+        `;
+        indicator.textContent = `${this.weapon.name} | ${this.weapon.damage} DMG`;
+        document.getElementById('game-container').appendChild(indicator);
     }
 
     update(time, pointer) {
@@ -139,7 +246,9 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         if (this.cursors.up.isDown || this.wasd.up.isDown) this.setVelocityY(-this.speed);
         if (this.cursors.down.isDown || this.wasd.down.isDown) this.setVelocityY(this.speed);
         
-        if (pointer.worldX) this.rotation = Phaser.Math.Angle.Between(this.x, this.y, pointer.worldX, pointer.worldY);
+        if (pointer.worldX) {
+            this.rotation = Phaser.Math.Angle.Between(this.x, this.y, pointer.worldX, pointer.worldY);
+        }
         
         if (Phaser.Input.Keyboard.JustDown(this.wasd.dash) && time > this.lastDash) {
             this.isDashing = true;
@@ -156,23 +265,59 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         
         if (pointer.leftButtonDown() && time > this.lastAttack) {
             this.attack(pointer);
-            this.lastAttack = time + this.attackCooldown;
+            this.lastAttack = time + this.weapon.cooldown;
         }
     }
 
     attack(pointer) {
+        if (this.weapon.type === 'ranged') {
+            this.rangedAttack(pointer);
+        } else {
+            this.meleeAttack();
+        }
+    }
+
+    meleeAttack() {
+        const attackX = this.x + Math.cos(this.rotation) * this.weapon.range;
+        const attackY = this.y + Math.sin(this.rotation) * this.weapon.range;
+        
+        const slash = this.scene.add.circle(attackX, attackY, this.weapon.range / 2, this.weapon.color, 0.5);
+        this.scene.time.delayedCall(100, () => slash.destroy());
+        
+        if (this.scene.enemies) {
+            this.scene.enemies.getChildren().forEach(enemy => {
+                const dist = Phaser.Math.Distance.Between(attackX, attackY, enemy.x, enemy.y);
+                if (dist < this.weapon.range) {
+                    enemy.takeDamage(this.weapon.damage);
+                }
+            });
+        }
+        
+        if (this.scene.boss && this.scene.boss.active) {
+            const dist = Phaser.Math.Distance.Between(attackX, attackY, this.scene.boss.x, this.scene.boss.y);
+            if (dist < this.weapon.range) {
+                this.scene.hitBoss({ damage: this.weapon.damage }, this.scene.boss);
+            }
+        }
+    }
+
+    rangedAttack(pointer) {
         const angle = Phaser.Math.Angle.Between(this.x, this.y, pointer.worldX, pointer.worldY);
         const bullet = this.scene.add.sprite(this.x, this.y, 'player');
-        bullet.setTint(0xffdd44); bullet.setScale(0.5); bullet.rotation = angle;
-        bullet.damage = this.attackDamage; bullet.hasHit = false;
+        bullet.setTint(this.weapon.color);
+        bullet.setScale(0.5);
+        bullet.rotation = angle;
+        bullet.damage = this.weapon.damage;
+        bullet.hasHit = false;
         
-        const tx = this.x + Math.cos(angle) * 500;
-        const ty = this.y + Math.sin(angle) * 500;
+        const tx = this.x + Math.cos(angle) * this.weapon.range;
+        const ty = this.y + Math.sin(angle) * this.weapon.range;
         
         const tween = this.scene.tweens.add({
-            targets: bullet, x: tx, y: ty, duration: 800,
+            targets: bullet, x: tx, y: ty, duration: (this.weapon.range / this.weapon.projectileSpeed) * 1000,
             onUpdate: () => {
                 if (!bullet || !bullet.active || bullet.hasHit) { tween.stop(); return; }
+                
                 if (this.scene.enemies) {
                     this.scene.enemies.getChildren().forEach(e => {
                         if (Phaser.Math.Distance.Between(bullet.x, bullet.y, e.x, e.y) < 30) {
@@ -183,15 +328,15 @@ class Player extends Phaser.Physics.Arcade.Sprite {
                         }
                     });
                 }
+                
                 if (this.scene.boss && this.scene.boss.active) {
                     if (Phaser.Math.Distance.Between(bullet.x, bullet.y, this.scene.boss.x, this.scene.boss.y) < 50) {
                         this.scene.hitBoss(bullet, this.scene.boss);
                         bullet.hasHit = true;
                         tween.stop();
                         bullet.destroy();
-                        return;
                     }
-                }               
+                }
             },
             onComplete: () => { if (bullet && bullet.active) bullet.destroy(); }
         });
@@ -202,7 +347,16 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         this.hp -= amount;
         this.setTint(0xff0000);
         this.scene.time.delayedCall(100, () => this.clearTint());
-        if (this.hp <= 0) this.scene.scene.start('HubScene');
+        
+        if (this.scene.updateHealthBar) {
+            this.scene.updateHealthBar(this.hp, this.maxHp);
+        }
+        
+        if (this.hp <= 0) {
+            const indicator = document.querySelector('.weapon-indicator');
+            if (indicator) indicator.remove();
+            this.scene.scene.start('HubScene');
+        }
     }
 }
 
@@ -563,7 +717,13 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
 class DungeonScene extends Phaser.Scene {
     constructor() { super({ key: 'DungeonScene' }); }
     
-    init(data) { this.course = data.course || 1; this.room = data.room || 1; this.roomCleared = false; }
+    init(data) {
+        this.course = data.course || 1;
+        this.room = data.room || 1;
+        this.roomCleared = false;
+        this.savedPlayerHp = data.playerHp !== undefined ? data.playerHp : 100;
+        this.selectedWeapon = data.weapon || 'ranged';
+    }
     
     create() {
         this.cameras.main.setBackgroundColor('#2a2a3a');
@@ -574,8 +734,9 @@ class DungeonScene extends Phaser.Scene {
         this.walls.create(400, 16, 'wall').setScale(25, 1).refreshBody();
         this.walls.create(400, 584, 'wall').setScale(25, 1).refreshBody();
         
-        this.player = new Player(this, 400, 500);
-        this.physics.add.collider(this.player, this.walls);
+        this.player = new Player(this, 400, 500, this.selectedWeapon);  // ← ЗДЕСЬ
+        this.player.hp = this.savedPlayerHp;
+        this.physics.add.collider(this.player, this.walls);;
         
         this.enemies = this.physics.add.group();
         this.createRoomLayout();
@@ -640,6 +801,7 @@ class DungeonScene extends Phaser.Scene {
         this.add.text(400, 550, 'WASD/Arrows | Mouse shoot | SPACE dash | ESC back', { fontSize: '14px', color: '#888' }).setOrigin(0.5);
         
         this.input.keyboard.on('keydown-ESC', () => this.scene.start('HubScene'));
+        this.createHealthBar();
     }
 
     createRoomLayout() {
@@ -773,6 +935,49 @@ class DungeonScene extends Phaser.Scene {
         this.physics.add.collider(this.enemies, this.obstacles);
     }
 
+        createHealthBar() {
+        // Удаляем старую полоску, если есть
+        const oldBar = document.querySelector('.health-bar-container');
+        if (oldBar) oldBar.remove();
+        
+        // Создаём контейнер
+        const container = document.createElement('div');
+        container.className = 'health-bar-container';
+        
+        // Создаём заполнение
+        this.healthFill = document.createElement('div');
+        this.healthFill.className = 'health-bar-fill';
+        container.appendChild(this.healthFill);
+        
+        // Создаём текст
+        this.healthText = document.createElement('div');
+        this.healthText.className = 'health-bar-text';
+        container.appendChild(this.healthText);
+        
+        // Добавляем в game-container
+        document.getElementById('game-container').appendChild(container);
+        
+        // Обновляем значение
+        this.updateHealthBar(this.player.hp, this.player.maxHp);
+    }
+
+    updateHealthBar(current, max) {
+        if (this.healthFill && this.healthText) {
+            const percent = (current / max) * 100;
+            this.healthFill.style.width = Math.max(0, percent) + '%';
+            this.healthText.textContent = `${Math.max(0, current)}/${max}`;
+            
+            // Меняем цвет градиента в зависимости от здоровья
+            if (percent > 60) {
+                this.healthFill.style.background = 'linear-gradient(90deg, #44ff44, #88ff88)';
+            } else if (percent > 30) {
+                this.healthFill.style.background = 'linear-gradient(90deg, #ffaa00, #ffcc44)';
+            } else {
+                this.healthFill.style.background = 'linear-gradient(90deg, #ff4444, #ff6666)';
+            }
+        }
+    }
+
     update(time) {
         if (this.player) this.player.update(time, this.input.activePointer);
         this.enemies.getChildren().forEach(e => e.update(time));
@@ -785,13 +990,26 @@ class DungeonScene extends Phaser.Scene {
     }
     
     nextRoom() {
+        const currentHp = this.player ? this.player.hp : 100;
+        
         if (this.room < 7) {
-            this.scene.restart({ course: this.course, room: this.room + 1 });
+            this.scene.restart({ 
+                course: this.course, 
+                room: this.room + 1,
+                playerHp: currentHp,
+                weapon: this.selectedWeapon
+            });
         } else {
             GameProgress.complete(this.course);
             this.scene.start('HubScene');
         }
     }
+
+    shutdown() {
+        const healthBar = document.querySelector('.health-bar-container');
+        if (healthBar) healthBar.remove();
+    }
+
 }
 
 // ============================================
@@ -832,6 +1050,7 @@ class BossScene extends Phaser.Scene {
                 const angle = Phaser.Math.Angle.Between(b.x, b.y, p.x, p.y);
                 p.setVelocity(Math.cos(angle) * 250, Math.sin(angle) * 250);
             }
+        this.createHealthBar()
         });
                 
         // Атаки игрока по боссу
@@ -999,6 +1218,49 @@ class BossScene extends Phaser.Scene {
     shutdown() {
         const containers = document.querySelectorAll('#game-container div');
         containers.forEach(c => c.remove());
+    }
+
+        createHealthBar() {
+        // Удаляем старую полоску, если есть
+        const oldBar = document.querySelector('.health-bar-container');
+        if (oldBar) oldBar.remove();
+        
+        // Создаём контейнер
+        const container = document.createElement('div');
+        container.className = 'health-bar-container';
+        
+        // Создаём заполнение
+        this.healthFill = document.createElement('div');
+        this.healthFill.className = 'health-bar-fill';
+        container.appendChild(this.healthFill);
+        
+        // Создаём текст
+        this.healthText = document.createElement('div');
+        this.healthText.className = 'health-bar-text';
+        container.appendChild(this.healthText);
+        
+        // Добавляем в game-container
+        document.getElementById('game-container').appendChild(container);
+        
+        // Обновляем значение
+        this.updateHealthBar(this.player.hp, this.player.maxHp);
+    }
+
+    updateHealthBar(current, max) {
+        if (this.healthFill && this.healthText) {
+            const percent = (current / max) * 100;
+            this.healthFill.style.width = Math.max(0, percent) + '%';
+            this.healthText.textContent = `${Math.max(0, current)}/${max}`;
+            
+            // Меняем цвет градиента в зависимости от здоровья
+            if (percent > 60) {
+                this.healthFill.style.background = 'linear-gradient(90deg, #44ff44, #88ff88)';
+            } else if (percent > 30) {
+                this.healthFill.style.background = 'linear-gradient(90deg, #ffaa00, #ffcc44)';
+            } else {
+                this.healthFill.style.background = 'linear-gradient(90deg, #ff4444, #ff6666)';
+            }
+        }
     }
 }
 
