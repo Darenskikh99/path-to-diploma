@@ -2,7 +2,7 @@ import { PLAYER_SPEED, PLAYER_MAX_HP, PLAYER_DASH_COOLDOWN, PLAYER_DASH_DURATION
 import { WEAPONS } from '../data/weapons.js';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
-    constructor(scene, x, y, weaponType = 'RANGED') {
+    constructor(scene, x, y, weaponType = 'ranged') {
         super(scene, x, y, 'player');
         scene.add.existing(this);
         scene.physics.add.existing(this);
@@ -19,12 +19,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         this.dashSpeed = PLAYER_DASH_SPEED;
         this.lastAttack = 0;
         
+        // Размер спрайта
+        this.setScale(0.5); // Уменьшаем 128px → ~38px
+        this.setSize(28, 40);
+        
         this.setCollideWorldBounds(true);
-        this.setSize(28, 28);
         this.cursors = scene.input.keyboard.createCursorKeys();
         this.wasd = scene.input.keyboard.addKeys({
             up: 'W', down: 'S', left: 'A', right: 'D', dash: 'SPACE'
         });
+        
+        // Запускаем idle
+        this.play('player_idle');
         
         this.showWeaponIndicator();
     }
@@ -55,20 +61,27 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     update(time, pointer) {
         if (this.isDashing) return;
         
-        this.setVelocity(0);
-        if (this.cursors.left.isDown || this.wasd.left.isDown) this.setVelocityX(-this.speed);
-        if (this.cursors.right.isDown || this.wasd.right.isDown) this.setVelocityX(this.speed);
-        if (this.cursors.up.isDown || this.wasd.up.isDown) this.setVelocityY(-this.speed);
-        if (this.cursors.down.isDown || this.wasd.down.isDown) this.setVelocityY(this.speed);
+            let moveX = 0, moveY = 0;
+        if (this.cursors.left.isDown || this.wasd.left.isDown) moveX = -1;
+        if (this.cursors.right.isDown || this.wasd.right.isDown) moveX = 1;
+        if (this.cursors.up.isDown || this.wasd.up.isDown) moveY = -1;
+        if (this.cursors.down.isDown || this.wasd.down.isDown) moveY = 1;
+
+        this.setVelocity(moveX * this.speed, moveY * this.speed);
         
+        // Отражение спрайта
         if (pointer.worldX) {
-            this.rotation = Phaser.Math.Angle.Between(this.x, this.y, pointer.worldX, pointer.worldY);
+            this.setFlipX(pointer.worldX < this.x);
         }
         
+        // Рывок
         if (Phaser.Input.Keyboard.JustDown(this.wasd.dash) && time > this.lastDash) {
             this.isDashing = true;
             this.lastDash = time + this.dashCooldown;
-            this.setVelocity(Math.cos(this.rotation) * this.dashSpeed, Math.sin(this.rotation) * this.dashSpeed);
+            
+            const dashAngle = Phaser.Math.Angle.Between(this.x, this.y, pointer.worldX, pointer.worldY);
+            this.setVelocity(Math.cos(dashAngle) * this.dashSpeed, Math.sin(dashAngle) * this.dashSpeed);
+            
             this.setAlpha(0.6);
             this.body.checkCollision.none = true;
             this.scene.time.delayedCall(PLAYER_DASH_DURATION, () => {
@@ -78,6 +91,30 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             });
         }
         
+        // Анимации
+        const specialAnims = ['player_hurt', 'player_attack', 'player_death', 'player_run'];
+        const isSpecial = this.anims && specialAnims.includes(this.anims.currentAnim?.key);
+
+        if (!isSpecial) {
+            if (this.isDashing) {
+                // Рывок — run
+                if (this.anims && this.anims.currentAnim?.key !== 'player_run') {
+                    this.play('player_run');
+                }
+            } else if (moveX !== 0 || moveY !== 0) {
+                // Движение — walk
+                if (this.anims && this.anims.currentAnim?.key !== 'player_walk') {
+                    this.play('player_walk');
+                }
+            } else {
+                // Стоим — idle
+                if (this.anims && this.anims.currentAnim?.key !== 'player_idle') {
+                    this.play('player_idle');
+                }
+            }
+        }
+        
+        // Атака
         if (pointer.leftButtonDown() && time > this.lastAttack) {
             this.attack(pointer);
             this.lastAttack = time + this.weapon.cooldown;
@@ -85,6 +122,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     attack(pointer) {
+        if (this.anims) {
+            this.play('player_attack');
+            this.once('animationcomplete', () => {
+                if (this.active) this.play('player_idle');
+            });
+        }
+        
         if (this.weapon.type === 'ranged') {
             this.rangedAttack(pointer);
         } else {
@@ -93,12 +137,17 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     meleeAttack() {
-        const attackX = this.x + Math.cos(this.rotation) * this.weapon.range;
-        const attackY = this.y + Math.sin(this.rotation) * this.weapon.range;
+        const pointer = this.scene.input.activePointer;
+        
+        // Угол к мышке
+        const angle = Phaser.Math.Angle.Between(this.x, this.y, pointer.worldX, pointer.worldY);
+        
+        const attackX = this.x + Math.cos(angle) * this.weapon.range;
+        const attackY = this.y + Math.sin(angle) * this.weapon.range;
         
         const slash = this.scene.add.circle(attackX, attackY, this.weapon.range / 2, this.weapon.color, 0.5);
         this.scene.time.delayedCall(100, () => slash.destroy());
-        slash.setData('damage', this.weapon.damage);
+        
         if (this.scene.enemies) {
             this.scene.enemies.getChildren().forEach(enemy => {
                 const dist = Phaser.Math.Distance.Between(attackX, attackY, enemy.x, enemy.y);
@@ -107,33 +156,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
                 }
             });
         }
-        
-        // Проверка босса
-        if (this.scene.boss && this.scene.boss.active) {
-            const dist = Phaser.Math.Distance.Between(attackX, attackY, this.scene.boss.x, this.scene.boss.y);
-            if (dist < this.weapon.range) {
-                this.scene.hitBoss({ damage: this.weapon.damage }, this.scene.boss);
-            }
-        }
     }
 
     rangedAttack(pointer) {
         const angle = Phaser.Math.Angle.Between(this.x, this.y, pointer.worldX, pointer.worldY);
         const bullet = this.scene.add.sprite(this.x, this.y, 'player');
-        // Если есть группа пуль в сцене — добавляем
-        if (this.scene.playerBullets) {
-            this.scene.physics.add.existing(bullet);
-            this.scene.playerBullets.add(bullet);
-        }
         bullet.setTint(this.weapon.color);
-        bullet.setScale(0.5);
+        bullet.setScale(0.2);
         bullet.rotation = angle;
         bullet.damage = this.weapon.damage;
         bullet.hasHit = false;
-
-        bullet.setData('damage', this.weapon.damage);
-        bullet.setData('isPlayerBullet', true);
-        bullet.setData('damage', this.weapon.damage);
         
         const tx = this.x + Math.cos(angle) * this.weapon.range;
         const ty = this.y + Math.sin(angle) * this.weapon.range;
@@ -161,17 +193,33 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     takeDamage(amount) {
         if (this.isDashing) return;
         this.hp -= amount;
+        
         this.setTint(0xff0000);
         this.scene.time.delayedCall(100, () => this.clearTint());
+        
+        // Анимация урона
+        if (this.anims) {
+            this.play('player_hurt');
+            this.once('animationcomplete', () => {
+                if (this.active) this.play('player_idle');
+            });
+        }
         
         if (this.scene.updateHealthBar) {
             this.scene.updateHealthBar(this.hp, this.maxHp);
         }
         
         if (this.hp <= 0) {
+            if (this.anims) {
+                this.play('player_death');
+            }
+            
             const indicator = document.querySelector('.weapon-indicator');
             if (indicator) indicator.remove();
-            this.scene.scene.start('HubScene');
+            
+            this.scene.time.delayedCall(700, () => {
+                this.scene.scene.start('HubScene');
+            });
         }
     }
 }
