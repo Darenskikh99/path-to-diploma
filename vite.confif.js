@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-    base: '/path-to-diploma/',
+    base: './',
     build: {
         outDir: 'dist',
         assetsDir: 'assets'
-    }
+    },
+    publicDir: 'assets'
 });
