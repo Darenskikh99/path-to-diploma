@@ -35,16 +35,20 @@ export class Lector extends Enemy {
     }
 
     rangedAttack() {
-        const bullet = this.scene.add.sprite(this.x, this.y, 'player');
-        bullet.setTint(0x6633cc);
-        bullet.setScale(0.6);
+        const bullet = this.scene.add.text(this.x, this.y, 'НЕУД', {
+            fontSize: '20px',
+            color: '#ff4444',
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5);
         bullet.damage = this.damage;
         
         const angle = Phaser.Math.Angle.Between(this.x, this.y, this.target.x, this.target.y);
         const speed = 200;
         
         const interval = setInterval(() => {
-            if (!bullet || !bullet.active || !this.target) {
+            if (!bullet || !bullet.scene || !this.target) {
                 clearInterval(interval);
                 return;
             }

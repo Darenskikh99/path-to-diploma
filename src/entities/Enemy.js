@@ -14,17 +14,22 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.setSize(28, 28);
     }
 
-    update() {
-        if (this.target) {
-            this.scene.physics.moveToObject(this, this.target, this.speed);
-        }
+    update(time) {
+        if (!this.target) return;
+        this.scene.physics.moveToObject(this, this.target, this.speed);
     }
 
     takeDamage(amount) {
         this.hp -= amount;
         this.setTint(0xff8888);
-        this.scene.time.delayedCall(100, () => this.clearTint());
+        this.scene.time.delayedCall(100, () => {
+            if (this.active) this.clearTint();
+        });
+
         if (this.hp <= 0) {
+            if (this.scene && this.scene.sound && this.scene.sound.get('enemy_death')) {
+                this.scene.sound.play('enemy_death');
+            }
             this.destroy();
         }
     }

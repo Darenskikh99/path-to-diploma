@@ -52,9 +52,13 @@ export class Teleportist extends Enemy {
     }
 
     rangedAttack() {
-        const bullet = this.scene.add.sprite(this.x, this.y, 'player');
-        bullet.setTint(0x33cccc);
-        bullet.setScale(0.5);
+        const bullet = this.scene.add.text(this.x, this.y, 'НЕУД', {
+            fontSize: '20px',
+            color: '#33cccc',
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5);
         bullet.damage = this.damage;
         
         const angle = Phaser.Math.Angle.Between(this.x, this.y, this.target.x, this.target.y);

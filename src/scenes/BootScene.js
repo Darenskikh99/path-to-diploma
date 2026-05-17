@@ -12,12 +12,23 @@ export class BootScene extends Phaser.Scene {
             frameHeight: 160
         });
         
-        // Враги (пока квадратики, потом заменишь)
+        // Враги
         this.createEnemyTexture();
         
         // Стены и двери
         this.createWallTexture();
         this.createDoorTexture();
+
+        // Звуки
+        this.load.audio('shoot', 'assets/sounds/shoot.ogg');
+        this.load.audio('melee', 'assets/sounds/melee.mp3');
+        this.load.audio('hit', 'assets/sounds/hit.wav');
+        this.load.audio('player_hurt', 'assets/sounds/player_hurt.mp3');
+        this.load.audio('enemy_death', 'assets/sounds/enemy_death.mp3');
+        this.load.audio('dash', 'assets/sounds/dash.wav');
+        this.load.audio('boss_shoot', 'assets/sounds/boss_shoot.mp3');
+        this.load.audio('boss_shoot2', 'assets/sounds/boss_shoot2.mp3');
+        this.load.audio('boss_shoot3', 'assets/sounds/boss_shoot3.mp3');
     }
 
     createEnemyTexture() {
@@ -105,6 +116,23 @@ export class BootScene extends Phaser.Scene {
             frames: this.anims.generateFrameNumbers('player', { start: 39, end: 45 }),
             frameRate: 6,
             repeat: 0
+        });
+        
+        // Настройки звуков
+        this.sound.add('shoot', { seek: 0, duration: 800 });
+        this.sound.add('melee', { seek: 0, duration: 600 });
+        this.sound.add('hit', { seek: 0, duration: 400 });
+        this.sound.add('player_hurt', { seek: 0, duration: 1000 });
+        this.sound.add('enemy_death', { seek: 0.3, duration: 1000 });
+        this.sound.add('dash', { seek: 0, duration: 500 });
+        
+        this.sound.volume = 0.3;
+        
+        // Разблокировка аудио
+        this.input.on('pointerdown', () => {
+            if (this.sound && this.sound.locked) {
+                this.sound.unlock();
+            }
         });
         
         this.scene.start('HubScene');

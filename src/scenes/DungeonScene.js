@@ -19,7 +19,12 @@ export class DungeonScene extends Phaser.Scene {
     }
 
     create() {
+
         this.cameras.main.setBackgroundColor('#2a2a3a');
+        
+        this.input.once('pointerdown', () => {
+            if (this.sound) this.sound.unlock();
+        });
         
         // Стены
         this.walls = this.physics.add.staticGroup();
@@ -58,6 +63,7 @@ export class DungeonScene extends Phaser.Scene {
         this.createUI();
         this.createHealthBar();
         
+        // ESC
         this.input.keyboard.on('keydown-ESC', () => {
             const indicator = document.querySelector('.weapon-indicator');
             if (indicator) indicator.remove();
@@ -108,7 +114,6 @@ export class DungeonScene extends Phaser.Scene {
         };
         this.cameras.main.setBackgroundColor(colors[this.room] || '#2a2a3a');
         
-        // Препятствия для каждой комнаты
         if (this.room === 1) {
             for (let row = 0; row < 3; row++) {
                 for (let col = 0; col < 3; col++) {
@@ -193,7 +198,10 @@ export class DungeonScene extends Phaser.Scene {
 
     update(time) {
         if (this.player) this.player.update(time, this.input.activePointer);
-        this.enemies.getChildren().forEach(e => e.update(time));
+        
+        this.enemies.getChildren().forEach(e => {
+            if (e.active) e.update(time);
+        });
         
         if (this.enemies.getLength() === 0 && !this.roomCleared) {
             this.roomCleared = true;

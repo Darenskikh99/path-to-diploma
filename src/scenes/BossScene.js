@@ -53,6 +53,7 @@ export class BossScene extends Phaser.Scene {
         this.input.keyboard.on('keydown-ESC', () => {
             this.clearUI();
             this.scene.start('HubScene');
+            this.scene.start('HubScene');
         });
     }
 
@@ -75,15 +76,18 @@ export class BossScene extends Phaser.Scene {
         if (!this.boss || !this.boss.active || !this.player) return;
         
         if (this.boss.phase === 1) {
+            this.sound.play('boss_shoot');
             for (let i = 0; i < 3; i++) {
                 this.shootProjectile(0, 200, 0xff00ff, true);
             }
         } else if (this.boss.phase === 2) {
+            this.sound.play('boss_shoot2');
             const baseAngle = Phaser.Math.Angle.Between(this.boss.x, this.boss.y, this.player.x, this.player.y);
             for (let i = -2; i <= 2; i++) {
                 this.shootProjectile(baseAngle + i * 0.3, 250, 0xff6600);
             }
         } else {
+            this.sound.play('boss_shoot3');
             for (let i = 0; i < 8; i++) {
                 this.shootProjectile(i * Math.PI / 4, 280, 0xff0000);
             }
@@ -100,9 +104,13 @@ export class BossScene extends Phaser.Scene {
             angle = typeof angleOrDeg === 'number' ? angleOrDeg : Phaser.Math.DegToRad(angleOrDeg);
         }
         
-        const bullet = this.add.sprite(this.boss.x, this.boss.y, 'player');
-        bullet.setTint(color);
-        bullet.setScale(0.6);
+        const bullet = this.scene.add.text(this.x, this.y, 'НЕУД', {
+            fontSize: '28px',
+            color: '#ff00ff',
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: 4
+        }).setOrigin(0.5);
         bullet.setData('isBossBullet', true);
         
         const tx = this.boss.x + Math.cos(angle) * 500;
@@ -114,7 +122,6 @@ export class BossScene extends Phaser.Scene {
             duration: (500 / speed) * 1000,
             onUpdate: () => {
                 if (!bullet || !bullet.active || !this.player) return;
-                
                 const dist = Phaser.Math.Distance.Between(bullet.x, bullet.y, this.player.x, this.player.y);
                 if (dist < 30) {
                     this.player.takeDamage(10);
@@ -132,7 +139,6 @@ export class BossScene extends Phaser.Scene {
             this.player.update(time, this.input.activePointer);
         }
         
-        // Проверка попаданий пуль игрока по боссу
         if (this.boss && this.boss.active && this.player) {
             this.children.list.forEach(child => {
                 if (child && child.active && 
@@ -174,6 +180,7 @@ export class BossScene extends Phaser.Scene {
         }
         
         if (this.boss.hp <= 0) {
+            this.sound.play('enemy_death');
             this.boss.destroy();
             this.boss = null;
             this.time.removeAllEvents();

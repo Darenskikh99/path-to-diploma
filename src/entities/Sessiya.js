@@ -63,13 +63,17 @@ export class Sessiya extends Enemy {
     }
 
     shootBullet(angle, speed, color) {
-        const bullet = this.scene.add.sprite(this.x, this.y, 'player');
-        bullet.setTint(color);
-        bullet.setScale(0.5);
+        const bullet = this.scene.add.text(this.x, this.y, 'НЕУД', {
+            fontSize: '24px',
+            color: '#ff4444',
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: 4
+        }).setOrigin(0.5);
         bullet.damage = this.damage;
         
         const interval = setInterval(() => {
-            if (!bullet || !bullet.active || !this.target) {
+            if (!bullet || !bullet.scene || !this.target) {
                 clearInterval(interval);
                 return;
             }

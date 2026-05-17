@@ -27,6 +27,7 @@ export class HubScene extends Phaser.Scene {
         });
 
         this.add.text(400, 560, 'WASD: move | Mouse: shoot | SPACE: dash | ESC: back', { fontSize: '14px', color: '#888' }).setOrigin(0.5);
+        this.sound.unlock();
     }
 
     createWeaponSelection() {
@@ -55,6 +56,9 @@ export class HubScene extends Phaser.Scene {
         
         const defaultBtn = this.children.getByName('ranged_btn');
         if (defaultBtn) defaultBtn.setStrokeStyle(3, 0xffffff);
+        this.input.keyboard.on('keydown-B', () => {
+    this.scene.start('BossScene');
+});
     }
 
     createCourseButtons() {
