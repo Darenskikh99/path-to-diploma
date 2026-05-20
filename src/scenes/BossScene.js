@@ -104,7 +104,7 @@ export class BossScene extends Phaser.Scene {
             angle = typeof angleOrDeg === 'number' ? angleOrDeg : Phaser.Math.DegToRad(angleOrDeg);
         }
         
-        const bullet = this.scene.add.text(this.x, this.y, 'НЕУД', {
+        const bullet = this.add.text(this.boss.x, this.boss.y, 'НЕУД', {
             fontSize: '28px',
             color: '#ff00ff',
             fontStyle: 'bold',
@@ -145,7 +145,7 @@ export class BossScene extends Phaser.Scene {
                     child !== this.boss && 
                     child !== this.player &&
                     child.type === 'Sprite' &&
-                    child.scaleX <= 0.6 &&
+                    (child.scaleX <= 0.6 || child.type === 'Text') &&
                     !child.getData('isBossBullet')) {
                     
                     const dist = Phaser.Math.Distance.Between(child.x, child.y, this.boss.x, this.boss.y);
